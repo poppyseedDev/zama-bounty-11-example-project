@@ -344,13 +344,35 @@ function createExample(exampleName, outputDir) {
   fs.writeFileSync(path.join(outputDir, 'README.md'), readme);
   success('README.md generated');
 
-  // Step 6: Clean up tasks directory
-  log('\n🧹 Step 6: Cleaning up...', 'cyan');
+  // Step 6: Update tasks directory
+  log('\n🔧 Step 6: Updating tasks...', 'cyan');
   const tasksDir = path.join(outputDir, 'tasks');
   if (fs.existsSync(tasksDir)) {
-    fs.rmSync(tasksDir, { recursive: true });
-    fs.mkdirSync(tasksDir);
-    fs.writeFileSync(path.join(tasksDir, '.gitkeep'), '');
+    // Update or remove contract-specific task file
+    const oldTaskFile = path.join(tasksDir, 'FHECounter.ts');
+    const newTaskFile = path.join(tasksDir, `${contractName}.ts`);
+
+    if (fs.existsSync(oldTaskFile)) {
+      // Read the task file and replace FHECounter with the new contract name
+      let taskContent = fs.readFileSync(oldTaskFile, 'utf-8');
+
+      // Replace all occurrences of FHECounter with the new contract name
+      taskContent = taskContent.replace(/FHECounter/g, contractName);
+      taskContent = taskContent.replace(/fheCounter/g, contractName.charAt(0).toLowerCase() + contractName.slice(1));
+
+      // Write to new file
+      fs.writeFileSync(newTaskFile, taskContent);
+
+      // Remove old file if different name
+      if (oldTaskFile !== newTaskFile) {
+        fs.unlinkSync(oldTaskFile);
+      }
+
+      success(`Updated tasks/${contractName}.ts`);
+    }
+
+    // Keep accounts.ts as-is (it's generic)
+    success('Tasks directory preserved');
   }
   success('Cleanup complete');
 

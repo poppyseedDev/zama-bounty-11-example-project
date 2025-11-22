@@ -17,10 +17,10 @@ This project provides tools and examples for building privacy-preserving smart c
 
 ```bash
 # Using npm scripts (recommended)
-npm run create-example fhe-counter ./my-fhe-counter
+npm run create-example fhe-counter ./test-output/my-fhe-counter
 
 # Or directly
-node scripts/create-fhevm-example.js fhe-counter ./my-fhe-counter
+node scripts/create-fhevm-example.js fhe-counter ../test-output/my-fhe-counter
 
 # Navigate and run
 cd my-fhe-counter

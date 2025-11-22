@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import { FHE, euint32 } from "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /**
  * This trivial example demonstrates the FHE decryption mechanism
  * and highlights common pitfalls developers may encounter.
  */
-contract UserDecryptSingleValue is SepoliaConfig {
+contract UserDecryptSingleValue is ZamaEthereumConfig {
   euint32 private _trivialEuint32;
 
   // solhint-disable-next-line no-empty-blocks
