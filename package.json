@@ -4,9 +4,11 @@
   "description": "Tooling for generating standalone FHEVM example repositories and documentation",
   "scripts": {
     "create-example": "node scripts/create-fhevm-example.js",
+    "create-category": "node scripts/create-fhevm-category.js",
     "generate-docs": "node scripts/generate-docs.js",
     "generate-all-docs": "node scripts/generate-docs.js --all",
     "help:create": "node scripts/create-fhevm-example.js --help",
+    "help:category": "node scripts/create-fhevm-category.js --help",
     "help:docs": "node scripts/generate-docs.js --help"
   },
   "keywords": [

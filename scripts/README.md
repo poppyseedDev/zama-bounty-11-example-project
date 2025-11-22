@@ -4,7 +4,7 @@ This directory contains automation scripts for generating standalone FHEVM examp
 
 ## Scripts Overview
 
-### 1. `create-fhevm-example.js`
+### 1. `create-fhevm-example.js` - Single Example Generator
 
 Generates a complete, standalone FHEVM example repository from the base template.
 
@@ -50,7 +50,41 @@ npm run compile
 npm run test
 ```
 
-### 2. `generate-docs.js`
+### 2. `create-fhevm-category.js` - Category Project Generator
+
+Generates a project containing all examples from a specific category.
+
+**Usage:**
+```bash
+node scripts/create-fhevm-category.js <category> [output-dir]
+```
+
+**Features:**
+- Copies all contracts from a category
+- Includes all corresponding tests
+- Generates unified deployment script for all contracts
+- Creates comprehensive README listing all examples
+- Perfect for learning multiple related concepts at once
+
+**Available Categories:**
+- `basic` - 9 contracts (FHE operations, encryption, decryption)
+- `auctions` - 2 contracts (Blind auction, Dutch auction)
+- `openzeppelin` - 4 contracts (ERC7984, token wrappers, swaps)
+- `games` - 2 contracts (FHEWordle)
+
+**Example:**
+```bash
+# Generate basic examples project
+node scripts/create-fhevm-category.js basic ./output/basic-examples
+
+# Navigate and test
+cd output/basic-examples
+npm install
+npm run compile
+npm run test
+```
+
+### 3. `generate-docs.js` - Documentation Generator
 
 Generates GitBook-formatted documentation from contract and test files.
 

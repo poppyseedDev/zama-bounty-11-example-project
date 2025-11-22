@@ -28,54 +28,76 @@ contract PublicDecryptMultipleValues is ZamaEthereumConfig {
     // _encryptedUint64 = c + 1
     _encryptedUint64 = FHE.add(FHE.asEuint64(c), FHE.asEuint64(1));
 
-    // see `DecryptSingleValueInSolidity.sol` for more detailed explanations
-    // about FHE permissions and asynchronous public decryption requests.
-    FHE.allowThis(_encryptedBool);
-    FHE.allowThis(_encryptedUint32);
-    FHE.allowThis(_encryptedUint64);
+    // Make the encrypted values publicly decryptable.
+    // This allows anyone to decrypt the values by providing valid decryption proofs.
+    FHE.makePubliclyDecryptable(_encryptedBool);
+    FHE.makePubliclyDecryptable(_encryptedUint32);
+    FHE.makePubliclyDecryptable(_encryptedUint64);
   }
 
-  function requestDecryptMultipleValues() external {
-    // To public decrypt multiple values, we must construct an array of the encrypted values
-    // we want to public decrypt.
+  /**
+   * @notice Returns the encrypted ebool handle.
+   * @return The encrypted bool value (ebool handle).
+   */
+  function getEncryptedBool() public view returns (ebool) {
+    return _encryptedBool;
+  }
+
+  /**
+   * @notice Returns the encrypted euint32 handle.
+   * @return The encrypted uint32 value (euint32 handle).
+   */
+  function getEncryptedUint32() public view returns (euint32) {
+    return _encryptedUint32;
+  }
+
+  /**
+   * @notice Returns the encrypted euint64 handle.
+   * @return The encrypted uint64 value (euint64 handle).
+   */
+  function getEncryptedUint64() public view returns (euint64) {
+    return _encryptedUint64;
+  }
+
+  /**
+   * @notice Verifies the provided (decryption proof, ABI-encoded clear values) pair against the stored ciphertexts,
+   *         and then stores the decrypted values.
+   * @param abiEncodedClearValues The ABI-encoded clear values (bool, uint32, uint64) associated to the `decryptionProof`.
+   *                              The order must match: (bool, uint32, uint64).
+   * @param decryptionProof The proof that validates the decryption.
+   * 
+   * @dev ⚠️ WARNING: The order of values in the ciphertext array is critical!
+   *      The order must match the ABI encoding order: (bool, uint32, uint64).
+   *      These values' types must match exactly! Mismatched types—such as using `uint32` 
+   *      instead of the correct `uint64` can cause subtle and hard-to-detect bugs.
+   *      Always ensure that the parameter types align with the expected decrypted value types.
+   */
+  function recordAndVerifyDecryption(
+    bytes memory abiEncodedClearValues,
+    bytes memory decryptionProof
+  ) public {
+    // 1. FHE Verification: Build the list of ciphertexts (handles) and verify the proof.
+    //    The verification checks that 'abiEncodedClearValues' is the true decryption
+    //    of the encrypted handles using the provided 'decryptionProof'.
     //
     // ⚠️ Warning: The order of values in the array is critical!
-    // The FHEVM backend will pass the public decrypted values to the callback function
-    // in the exact same order they appear in this array.
-    // Therefore, the order must match the parameter declaration in the callback.
-    bytes32[] memory cypherTexts = new bytes32[](3);
-    cypherTexts[0] = FHE.toBytes32(_encryptedBool);
-    cypherTexts[1] = FHE.toBytes32(_encryptedUint32);
-    cypherTexts[2] = FHE.toBytes32(_encryptedUint64);
+    // The order must match the ABI encoding order in abiEncodedClearValues: (bool, uint32, uint64).
+    bytes32[] memory cts = new bytes32[](3);
+    cts[0] = FHE.toBytes32(_encryptedBool);
+    cts[1] = FHE.toBytes32(_encryptedUint32);
+    cts[2] = FHE.toBytes32(_encryptedUint64);
 
-    FHE.requestDecryption(
-      // the list of encrypte values we want to public decrypt
-      cypherTexts,
-      // Selector of the Solidity callback function that the FHEVM backend will call with
-      // the decrypted (clear) values as arguments
-      this.callbackDecryptMultipleValues.selector
+    // This FHE call reverts the transaction if the decryption proof is invalid.
+    FHE.checkSignatures(
+      cts,
+      abiEncodedClearValues,
+      decryptionProof
     );
-  }
 
-  // ⚠️ WARNING: The `cleartexts` argument is an ABI encoding of the decrypted values associated 
-  // to the handles (using `abi.encode`). 
-  // 
-  // These values' types must match exactly! Mismatched types—such as using `uint32 decryptedUint64` 
-  // instead of the correct `uint64 decryptedUint64` can cause subtle and hard-to-detect bugs, 
-  // especially for developers new to the FHEVM stack.
-  // Always ensure that the parameter types align with the expected decrypted value types.
-  // 
-  // !DOUBLE-CHECK!
-  function callbackDecryptMultipleValues(
-    uint256 requestID,
-    bytes memory cleartexts,
-    bytes memory decryptionProof
-  ) external {
-    // ⚠️ Don't forget the signature checks! (see `DecryptSingleValueInSolidity.sol` for detailed explanations)
-    // The signatures are included in the `decryptionProof` parameter.
-    FHE.checkSignatures(requestID, cleartexts, decryptionProof);
-
-    (bool decryptedBool, uint32 decryptedUint32, uint64 decryptedUint64) = abi.decode(cleartexts, (bool, uint32, uint64));
+    // 2. Decode the clear results and store them.
+    // The order must match the ciphertext array order: (bool, uint32, uint64).
+    (bool decryptedBool, uint32 decryptedUint32, uint64 decryptedUint64) = 
+      abi.decode(abiEncodedClearValues, (bool, uint32, uint64));
     _clearBool = decryptedBool;
     _clearUint32 = decryptedUint32;
     _clearUint64 = decryptedUint64;

@@ -29,6 +29,19 @@ npm run compile
 npm run test
 ```
 
+### Generate a Category Project (Multiple Examples)
+
+```bash
+# Using npm scripts (recommended)
+npm run create-category basic ./my-basic-examples
+
+# Or directly
+node scripts/create-fhevm-category.js basic ./my-basic-examples
+
+# Available categories: basic, auctions, openzeppelin, games
+npm run help:category  # See all categories
+```
+
 ### Generate Documentation
 
 ```bash
@@ -183,12 +196,29 @@ npm run lint
 
 ### create-fhevm-example.js
 
-Generates complete standalone repositories:
+Generates complete standalone repositories for **single examples**:
 - Clones base template
 - Copies contract and test files
 - Updates configuration
 - Generates README
 - Creates deployment scripts
+
+[See scripts/README.md for details](scripts/README.md)
+
+### create-fhevm-category.js
+
+Generates projects with **multiple examples from a category**:
+- Copies all contracts from a category (basic, auctions, etc.)
+- Includes all corresponding tests
+- Generates unified deployment script
+- Creates comprehensive README
+- Perfect for learning multiple related concepts
+
+**Categories:**
+- **basic** (9 contracts) - Encryption, decryption, FHE operations
+- **auctions** (2 contracts) - Blind auction, Dutch auction
+- **openzeppelin** (4 contracts) - ERC7984, token wrappers, swaps
+- **games** (2 contracts) - FHEWordle
 
 [See scripts/README.md for details](scripts/README.md)
 
