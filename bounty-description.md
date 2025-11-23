@@ -1,7 +1,5 @@
 # Developer Program Bounty Track November-December 2025: Build FHEVM Example Repositories
 
----
-
 The Zama Bounty Program aims to inspire and incentivize the developer community to contribute to the Zama Confidential Blockchain Protocol.
 
 Each season, we introduce a new bounty that addresses a specific challenge. With this initiative, we invite developers to collaborate with us in advancing the FHE ecosystem.
