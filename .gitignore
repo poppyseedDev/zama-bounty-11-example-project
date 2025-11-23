@@ -5,3 +5,4 @@ test-output/
 .DS_Store
 .idea/
 CLAUDE.md
+node_modules/

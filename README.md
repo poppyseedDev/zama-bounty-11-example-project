@@ -20,7 +20,7 @@ This project provides tools and examples for building privacy-preserving smart c
 npm run create-example fhe-counter ./test-output/my-fhe-counter
 
 # Or directly
-node scripts/create-fhevm-example.js fhe-counter ../test-output/my-fhe-counter
+ts-node scripts/create-fhevm-example.ts fhe-counter ../test-output/my-fhe-counter
 
 # Navigate and run
 cd my-fhe-counter
@@ -36,7 +36,7 @@ npm run test
 npm run create-category basic ./my-basic-examples
 
 # Or directly
-node scripts/create-fhevm-category.js basic ./my-basic-examples
+ts-node scripts/create-fhevm-category.ts basic ./my-basic-examples
 
 # Available categories: basic, auctions, openzeppelin, games
 npm run help:category  # See all categories
@@ -50,8 +50,8 @@ npm run generate-docs fhe-counter    # Single example
 npm run generate-all-docs              # All examples
 
 # Or directly
-node scripts/generate-docs.js fhe-counter
-node scripts/generate-docs.js --all
+ts-node scripts/generate-docs.ts fhe-counter
+ts-node scripts/generate-docs.ts --all
 ```
 
 ## Project Structure

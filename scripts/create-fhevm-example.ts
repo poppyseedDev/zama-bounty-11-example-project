@@ -1,46 +1,54 @@
-#!/usr/bin/env node
+#!/usr/bin/env ts-node
 
 /**
  * create-fhevm-example - CLI tool to generate standalone FHEVM example repositories
  *
- * Usage: node scripts/create-fhevm-example.js <example-name> [output-dir]
+ * Usage: ts-node scripts/create-fhevm-example.ts <example-name> [output-dir]
  *
- * Example: node scripts/create-fhevm-example.js fhe-counter ./output/fhe-counter-example
+ * Example: ts-node scripts/create-fhevm-example.ts fhe-counter ./my-fhe-counter
  */
 
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 
 // Color codes for terminal output
-const colors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  blue: '\x1b[34m',
-  yellow: '\x1b[33m',
-  red: '\x1b[31m',
-  cyan: '\x1b[36m',
-};
-
-function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+enum Color {
+  Reset = '\x1b[0m',
+  Green = '\x1b[32m',
+  Blue = '\x1b[34m',
+  Yellow = '\x1b[33m',
+  Red = '\x1b[31m',
+  Cyan = '\x1b[36m',
 }
 
-function error(message) {
-  log(`❌ Error: ${message}`, 'red');
+function log(message: string, color: Color = Color.Reset): void {
+  console.log(`${color}${message}${Color.Reset}`);
+}
+
+function error(message: string): never {
+  log(`❌ Error: ${message}`, Color.Red);
   process.exit(1);
 }
 
-function success(message) {
-  log(`✅ ${message}`, 'green');
+function success(message: string): void {
+  log(`✅ ${message}`, Color.Green);
 }
 
-function info(message) {
-  log(`ℹ️  ${message}`, 'blue');
+function info(message: string): void {
+  log(`ℹ️  ${message}`, Color.Blue);
+}
+
+// Example configuration interface
+interface ExampleConfig {
+  contract: string;
+  test: string;
+  testFixture?: string;
+  description: string;
 }
 
 // Map of example names to their contract and test paths
-const EXAMPLES_MAP = {
+const EXAMPLES_MAP: Record<string, ExampleConfig> = {
   'fhe-counter': {
     contract: 'contracts/basic/FHECounter.sol',
     test: 'test/FHECounter.ts',
@@ -105,7 +113,7 @@ const EXAMPLES_MAP = {
   },
 };
 
-function copyDirectoryRecursive(source, destination) {
+function copyDirectoryRecursive(source: string, destination: string): void {
   if (!fs.existsSync(destination)) {
     fs.mkdirSync(destination, { recursive: true });
   }
@@ -129,14 +137,14 @@ function copyDirectoryRecursive(source, destination) {
   });
 }
 
-function getContractName(contractPath) {
+function getContractName(contractPath: string): string | null {
   const content = fs.readFileSync(contractPath, 'utf-8');
   // Match contract declaration, ignoring comments and ensuring it's followed by 'is' or '{'
   const match = content.match(/^\s*contract\s+(\w+)(?:\s+is\s+|\s*\{)/m);
   return match ? match[1] : null;
 }
 
-function updateDeployScript(outputDir, contractName) {
+function updateDeployScript(outputDir: string, contractName: string): void {
   const deployScriptPath = path.join(outputDir, 'deploy', 'deploy.ts');
 
   const deployScript = `import { DeployFunction } from "hardhat-deploy/types";
@@ -161,7 +169,7 @@ func.tags = ["${contractName}"];
   fs.writeFileSync(deployScriptPath, deployScript);
 }
 
-function updatePackageJson(outputDir, exampleName, description) {
+function updatePackageJson(outputDir: string, exampleName: string, description: string): void {
   const packageJsonPath = path.join(outputDir, 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
@@ -172,7 +180,7 @@ function updatePackageJson(outputDir, exampleName, description) {
   fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 }
 
-function generateReadme(exampleName, description, contractName) {
+function generateReadme(exampleName: string, description: string, contractName: string): string {
   return `# FHEVM Example: ${exampleName}
 
 ${description}
@@ -258,7 +266,7 @@ This project is licensed under the BSD-3-Clause-Clear License.
 `;
 }
 
-function createExample(exampleName, outputDir) {
+function createExample(exampleName: string, outputDir: string): void {
   const rootDir = path.resolve(__dirname, '..');
   const templateDir = path.join(rootDir, 'fhevm-hardhat-template');
 
@@ -283,7 +291,7 @@ function createExample(exampleName, outputDir) {
   info(`Output directory: ${outputDir}`);
 
   // Step 1: Copy template
-  log('\n📋 Step 1: Copying template...', 'cyan');
+  log('\n📋 Step 1: Copying template...', Color.Cyan);
   if (fs.existsSync(outputDir)) {
     error(`Output directory already exists: ${outputDir}`);
   }
@@ -291,7 +299,7 @@ function createExample(exampleName, outputDir) {
   success('Template copied');
 
   // Step 2: Copy contract
-  log('\n📄 Step 2: Copying contract...', 'cyan');
+  log('\n📄 Step 2: Copying contract...', Color.Cyan);
   const contractName = getContractName(contractPath);
   if (!contractName) {
     error('Could not extract contract name from contract file');
@@ -308,7 +316,7 @@ function createExample(exampleName, outputDir) {
   success(`Contract copied: ${contractName}.sol`);
 
   // Step 3: Copy test
-  log('\n🧪 Step 3: Copying test...', 'cyan');
+  log('\n🧪 Step 3: Copying test...', Color.Cyan);
   const destTestPath = path.join(outputDir, 'test', path.basename(testPath));
 
   // Remove template tests
@@ -333,19 +341,19 @@ function createExample(exampleName, outputDir) {
   }
 
   // Step 4: Update configuration files
-  log('\n⚙️  Step 4: Updating configuration...', 'cyan');
+  log('\n⚙️  Step 4: Updating configuration...', Color.Cyan);
   updateDeployScript(outputDir, contractName);
   updatePackageJson(outputDir, exampleName, example.description);
   success('Configuration updated');
 
   // Step 5: Generate README
-  log('\n📝 Step 5: Generating README...', 'cyan');
+  log('\n📝 Step 5: Generating README...', Color.Cyan);
   const readme = generateReadme(exampleName, example.description, contractName);
   fs.writeFileSync(path.join(outputDir, 'README.md'), readme);
   success('README.md generated');
 
   // Step 6: Update tasks directory
-  log('\n🔧 Step 6: Updating tasks...', 'cyan');
+  log('\n🔧 Step 6: Updating tasks...', Color.Cyan);
   const tasksDir = path.join(outputDir, 'tasks');
   if (fs.existsSync(tasksDir)) {
     // Update or remove contract-specific task file
@@ -377,33 +385,33 @@ function createExample(exampleName, outputDir) {
   success('Cleanup complete');
 
   // Final summary
-  log('\n' + '='.repeat(60), 'green');
+  log('\n' + '='.repeat(60), Color.Green);
   success(`FHEVM example "${exampleName}" created successfully!`);
-  log('='.repeat(60), 'green');
+  log('='.repeat(60), Color.Green);
 
-  log('\n📦 Next steps:', 'yellow');
+  log('\n📦 Next steps:', Color.Yellow);
   log(`  cd ${path.relative(process.cwd(), outputDir)}`);
   log('  npm install');
   log('  npm run compile');
   log('  npm run test');
 
-  log('\n🎉 Happy coding with FHEVM!', 'cyan');
+  log('\n🎉 Happy coding with FHEVM!', Color.Cyan);
 }
 
 // Main execution
-function main() {
+function main(): void {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    log('FHEVM Example Generator', 'cyan');
-    log('\nUsage: node scripts/create-fhevm-example.js <example-name> [output-dir]\n');
-    log('Available examples:', 'yellow');
+    log('FHEVM Example Generator', Color.Cyan);
+    log('\nUsage: ts-node scripts/create-fhevm-example.ts <example-name> [output-dir]\n');
+    log('Available examples:', Color.Yellow);
     Object.entries(EXAMPLES_MAP).forEach(([name, info]) => {
-      log(`  ${name}`, 'green');
-      log(`    ${info.description}`, 'reset');
+      log(`  ${name}`, Color.Green);
+      log(`    ${info.description}`, Color.Reset);
     });
-    log('\nExample:', 'yellow');
-    log('  node scripts/create-fhevm-example.js fhe-counter ./output/fhe-counter-example\n');
+    log('\nExample:', Color.Yellow);
+    log('  ts-node scripts/create-fhevm-example.ts fhe-counter ./my-fhe-counter\n');
     process.exit(0);
   }
 

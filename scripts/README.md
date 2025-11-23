@@ -10,7 +10,7 @@ Generates a complete, standalone FHEVM example repository from the base template
 
 **Usage:**
 ```bash
-node scripts/create-fhevm-example.js <example-name> [output-dir]
+ts-node scripts/create-fhevm-example.ts <example-name> [output-dir]
 ```
 
 **Features:**
@@ -39,7 +39,7 @@ node scripts/create-fhevm-example.js <example-name> [output-dir]
 **Example:**
 ```bash
 # Generate fhe-counter example
-node scripts/create-fhevm-example.js fhe-counter ./output/fhe-counter-example
+ts-node scripts/create-fhevm-example.ts fhe-counter ./output/fhe-counter-example
 
 # Navigate to generated example
 cd output/fhe-counter-example
@@ -56,7 +56,7 @@ Generates a project containing all examples from a specific category.
 
 **Usage:**
 ```bash
-node scripts/create-fhevm-category.js <category> [output-dir]
+ts-node scripts/create-fhevm-category.ts <category> [output-dir]
 ```
 
 **Features:**
@@ -75,7 +75,7 @@ node scripts/create-fhevm-category.js <category> [output-dir]
 **Example:**
 ```bash
 # Generate basic examples project
-node scripts/create-fhevm-category.js basic ./output/basic-examples
+ts-node scripts/create-fhevm-category.ts basic ./output/basic-examples
 
 # Navigate and test
 cd output/basic-examples
@@ -104,10 +104,10 @@ node scripts/generate-docs.js --all
 **Example:**
 ```bash
 # Generate docs for single example
-node scripts/generate-docs.js fhe-counter
+ts-node scripts/generate-docs.ts fhe-counter
 
 # Generate all documentation
-node scripts/generate-docs.js --all
+ts-node scripts/generate-docs.ts --all
 ```
 
 **Output Format:**
@@ -139,17 +139,17 @@ The generator creates GitBook-compatible markdown files in `examples/` with:
    ```
 
 3. **Add to script configurations**
-   - Update `EXAMPLES_MAP` in `create-fhevm-example.js`
-   - Update `EXAMPLES_CONFIG` in `generate-docs.js`
+   - Update `EXAMPLES_MAP` in `create-fhevm-example.ts`
+   - Update `EXAMPLES_CONFIG` in `generate-docs.ts`
 
 4. **Generate documentation**
    ```bash
-   node scripts/generate-docs.js my-example
+   ts-node scripts/generate-docs.ts my-example
    ```
 
 5. **Create standalone repo**
    ```bash
-   node scripts/create-fhevm-example.js my-example ./output/my-example
+   ts-node scripts/create-fhevm-example.ts my-example ./output/my-example
    ```
 
 ### Testing Generated Examples
@@ -168,17 +168,27 @@ npm run lint
 ```
 scripts/
 ├── README.md                    # This file
-├── create-fhevm-example.js     # Repository generator
-└── generate-docs.js            # Documentation generator
+├── create-fhevm-example.ts     # Repository generator (TypeScript)
+├── create-fhevm-category.ts    # Category project generator (TypeScript)
+└── generate-docs.ts            # Documentation generator (TypeScript)
 ```
+
+**Note:** All scripts are written in TypeScript for better type safety and maintainability.
 
 ## Configuration
 
-Both scripts use configuration objects that map example names to their source files:
+All scripts use TypeScript configuration objects that map example names to their source files:
 
-**create-fhevm-example.js:**
-```javascript
-const EXAMPLES_MAP = {
+**create-fhevm-example.ts:**
+```typescript
+interface ExampleConfig {
+  contract: string;
+  test: string;
+  testFixture?: string;
+  description: string;
+}
+
+const EXAMPLES_MAP: Record<string, ExampleConfig> = {
   'example-name': {
     contract: 'path/to/contract.sol',
     test: 'path/to/test.ts',
@@ -189,9 +199,18 @@ const EXAMPLES_MAP = {
 };
 ```
 
-**generate-docs.js:**
-```javascript
-const EXAMPLES_CONFIG = {
+**generate-docs.ts:**
+```typescript
+interface DocsConfig {
+  title: string;
+  description: string;
+  contract: string;
+  test: string;
+  output: string;
+  category: string;
+}
+
+const EXAMPLES_CONFIG: Record<string, DocsConfig> = {
   'example-name': {
     title: 'Display Title',
     description: 'Full description for docs',
@@ -224,7 +243,7 @@ When updating `@fhevm/solidity` or other dependencies:
 
 ```bash
 # Quick regeneration of all docs
-node scripts/generate-docs.js --all
+ts-node scripts/generate-docs.ts --all
 ```
 
 ## Troubleshooting

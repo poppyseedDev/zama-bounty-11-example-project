@@ -10,5 +10,5 @@
 - Decryption
   - [User decrypt single value](fhe-user-decrypt-single-value.md)
   - [User decrypt multiple values](fhe-user-decrypt-multiple-values.md)
-  - [Public Decrypt single value](heads-or-tails.md)
-  - [Public Decrypt multiple values](highest-die-roll.md)
+  - [Public Decrypt single value]()
+  - [Public Decrypt multiple values]()

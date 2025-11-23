@@ -1,36 +1,28 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import type { ClearValueType } from "@zama-fhe/relayer-sdk/node";
 import { expect } from "chai";
 import { ethers as EthersT } from "ethers";
 import { ethers, fhevm } from "hardhat";
 import * as hre from "hardhat";
 
-import { PublicDecryptMultipleValues, PublicDecryptMultipleValues__factory } from "../../../types";
-
-type Signers = {
-  owner: HardhatEthersSigner;
-  alice: HardhatEthersSigner;
-  bob: HardhatEthersSigner;
-};
+import { HighestDieRoll, HighestDieRoll__factory } from "../../../typechain-types";
+import { Signers } from "../signers";
 
 async function deployFixture() {
   // Contracts are deployed using the first signer/account by default
-  const factory = (await ethers.getContractFactory(
-    "PublicDecryptMultipleValues",
-  )) as PublicDecryptMultipleValues__factory;
-  const publicDecryptMultipleValues = (await factory.deploy()) as PublicDecryptMultipleValues;
-  const publicDecryptMultipleValues_address = await publicDecryptMultipleValues.getAddress();
+  const factory = (await ethers.getContractFactory("HighestDieRoll")) as HighestDieRoll__factory;
+  const highestDiceRoll = (await factory.deploy()) as HighestDieRoll;
+  const highestDiceRoll_address = await highestDiceRoll.getAddress();
 
-  return { publicDecryptMultipleValues, publicDecryptMultipleValues_address };
+  return { highestDiceRoll, highestDiceRoll_address };
 }
 
-/**
- * This trivial example demonstrates the FHE public decryption mechanism
- * using the synchronous makePubliclyDecryptable pattern with multiple values.
- */
-describe("PublicDecryptMultipleValues", function () {
-  let contract: PublicDecryptMultipleValues;
+describe("HighestDieRoll", function () {
+  let contract: HighestDieRoll;
   let contractAddress: string;
   let signers: Signers;
+  let playerA: HardhatEthersSigner;
+  let playerB: HardhatEthersSigner;
 
   before(async function () {
     // Check whether the tests are running against an FHEVM mock environment
@@ -40,181 +32,175 @@ describe("PublicDecryptMultipleValues", function () {
 
     const ethSigners: HardhatEthersSigner[] = await ethers.getSigners();
     signers = { owner: ethSigners[0], alice: ethSigners[1], bob: ethSigners[2] };
+
+    playerA = signers.alice;
+    playerB = signers.bob;
   });
 
   beforeEach(async function () {
     // Deploy a new contract each time we run a new test
     const deployment = await deployFixture();
-    contractAddress = deployment.publicDecryptMultipleValues_address;
-    contract = deployment.publicDecryptMultipleValues;
+    contractAddress = deployment.highestDiceRoll_address;
+    contract = deployment.highestDiceRoll;
   });
+
+  /**
+   * Helper: Parses the GameCreated event from a transaction receipt.
+   * WARNING: This function is for illustrative purposes only and is not production-ready
+   * (it does not handle several events in same tx).
+   */
+  function parseGameCreatedEvent(txReceipt: EthersT.ContractTransactionReceipt | null): {
+    txHash: `0x${string}`;
+    gameId: number;
+    playerA: `0x${string}`;
+    playerB: `0x${string}`;
+    playerAEncryptedDiceRoll: `0x${string}`;
+    playerBEncryptedDiceRoll: `0x${string}`;
+  } {
+    const gameCreatedEvents: Array<{
+      txHash: `0x${string}`;
+      gameId: number;
+      playerA: `0x${string}`;
+      playerB: `0x${string}`;
+      playerAEncryptedDiceRoll: `0x${string}`;
+      playerBEncryptedDiceRoll: `0x${string}`;
+    }> = [];
+
+    if (txReceipt) {
+      const logs = Array.isArray(txReceipt.logs) ? txReceipt.logs : [txReceipt.logs];
+      for (let i = 0; i < logs.length; ++i) {
+        const parsedLog = contract.interface.parseLog(logs[i]);
+        if (!parsedLog || parsedLog.name !== "GameCreated") {
+          continue;
+        }
+        const ge = {
+          txHash: txReceipt.hash as `0x${string}`,
+          gameId: Number(parsedLog.args[0]),
+          playerA: parsedLog.args[1],
+          playerB: parsedLog.args[2],
+          playerAEncryptedDiceRoll: parsedLog.args[3],
+          playerBEncryptedDiceRoll: parsedLog.args[4],
+        };
+        gameCreatedEvents.push(ge);
+      }
+    }
+
+    // In this example, we expect on one single GameCreated event
+    expect(gameCreatedEvents.length).to.eq(1);
+
+    return gameCreatedEvents[0];
+  }
 
   // ✅ Test should succeed
   it("decryption should succeed", async function () {
     console.log(``);
-    console.log(`🔢 PublicDecryptMultipleValues contract address: ${contractAddress}`);
-    console.log(`   👤 alice.address: ${signers.alice.address}`);
+    console.log(`🎲 HighestDieRoll Game contract address: ${contractAddress}`);
+    console.log(`   🤖 playerA.address: ${playerA.address}`);
+    console.log(`   🎃 playerB.address: ${playerB.address}`);
     console.log(``);
 
-    const inputBool = true;
-    const inputUint32 = 123456;
-    const inputUint64 = 78901234567;
+    // Starts a new Heads or Tails game. This will emit a `GameCreated` event
+    const tx = await contract.connect(signers.owner).highestDieRoll(playerA, playerB);
 
-    const expectedBool = inputBool; // a ^ false = a
-    const expectedUint32 = inputUint32 + 1; // b + 1
-    const expectedUint64 = inputUint64 + 1; // c + 1
+    // Parse the `GameCreated` event
+    const gameCreatedEvent = parseGameCreatedEvent(await tx.wait())!;
 
-    // Initialize the contract with values
-    const tx = await contract.connect(signers.alice).initialize(inputBool, inputUint32, inputUint64);
-    await tx.wait();
+    // GameId is 1 since we are playing the first game
+    expect(gameCreatedEvent.gameId).to.eq(1);
+    expect(gameCreatedEvent.playerA).to.eq(playerA.address);
+    expect(gameCreatedEvent.playerB).to.eq(playerB.address);
+    expect(await contract.getGamesCount()).to.eq(1);
 
-    // Get the encrypted handles in the correct order: (bool, uint32, uint64)
-    const encryptedBool = await contract.getEncryptedBool();
-    const encryptedUint32 = await contract.getEncryptedUint32();
-    const encryptedUint64 = await contract.getEncryptedUint64();
+    console.log(`✅ New game #${gameCreatedEvent.gameId} created!`);
+    console.log(JSON.stringify(gameCreatedEvent, null, 2));
 
-    const encryptedBoolString = encryptedBool.toString();
-    const encryptedUint32String = encryptedUint32.toString();
-    const encryptedUint64String = encryptedUint64.toString();
-
-    console.log(`✅ Contract initialized with values:`);
-    console.log(`   bool: ${inputBool}, uint32: ${inputUint32}, uint64: ${inputUint64}`);
+    const gameId = gameCreatedEvent.gameId;
+    const playerADiceRoll = gameCreatedEvent.playerAEncryptedDiceRoll;
+    const playerBDiceRoll = gameCreatedEvent.playerBEncryptedDiceRoll;
 
     // Call the Zama Relayer to compute the decryption
-    // ⚠️ The order is critical: must match (bool, uint32, uint64)
-    const publicDecryptResults = await fhevm.publicDecrypt([
-      encryptedBoolString,
-      encryptedUint32String,
-      encryptedUint64String,
-    ]);
+    const publicDecryptResults = await fhevm.publicDecrypt([playerADiceRoll, playerBDiceRoll]);
 
     // The Relayer returns a `PublicDecryptResults` object containing:
-    // - the ORDERED clear values
+    // - the ORDERED clear values (here we have only one single value)
     // - the ORDERED clear values in ABI-encoded form
     // - the KMS decryption proof associated with the ORDERED clear values in ABI-encoded form
-    const abiEncodedClearValues = publicDecryptResults.abiEncodedClearValues;
+    const abiEncodedClearGameResult = publicDecryptResults.abiEncodedClearValues;
     const decryptionProof = publicDecryptResults.decryptionProof;
 
-    // Let's forward the `PublicDecryptResults` content to the on-chain contract whose job
-    // will simply be to verify the proof and store the decrypted values
-    await contract.recordAndVerifyDecryption(abiEncodedClearValues, decryptionProof);
+    const clearValueA: ClearValueType = publicDecryptResults.clearValues[playerADiceRoll];
+    const clearValueB: ClearValueType = publicDecryptResults.clearValues[playerBDiceRoll];
 
-    const clearBool = await contract.clearBool();
-    const clearUint32 = await contract.clearUint32();
-    const clearUint64 = await contract.clearUint64();
+    expect(typeof clearValueA).to.eq("bigint");
+    expect(typeof clearValueB).to.eq("bigint");
 
-    expect(clearBool).to.equal(expectedBool);
-    expect(clearUint32).to.equal(expectedUint32);
-    expect(clearUint64).to.equal(expectedUint64);
+    // playerA's 8-sided die roll result (between 1 and 8)
+    const a = (Number(clearValueA) % 8) + 1;
+    // playerB's 8-sided die roll result (between 1 and 8)
+    const b = (Number(clearValueB) % 8) + 1;
 
-    console.log(`✅ Decrypted values:`);
-    console.log(`   bool: ${clearBool} (expected: ${expectedBool})`);
-    console.log(`   uint32: ${clearUint32} (expected: ${expectedUint32})`);
-    console.log(`   uint64: ${clearUint64} (expected: ${expectedUint64})`);
+    const isDraw = a === b;
+    const playerAWon = a > b;
+    const playerBWon = a < b;
+
     console.log(``);
+    console.log(`🎲 playerA's 8-sided die roll is ${a}`);
+    console.log(`🎲 playerB's 8-sided die roll is ${b}`);
+
+    // Let's forward the `PublicDecryptResults` content to the on-chain contract whose job
+    // will simply be to verify the proof and store the final winner of the game
+    await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof);
+
+    const isRevealed = await contract.isGameRevealed(gameId);
+    const winner = await contract.getWinner(gameId);
+
+    expect(isRevealed).to.eq(true);
+    expect(winner === playerA.address || winner === playerB.address || winner === EthersT.ZeroAddress).to.eq(true);
+
+    expect(isDraw).to.eq(winner === EthersT.ZeroAddress);
+    expect(playerAWon).to.eq(winner === playerA.address);
+    expect(playerBWon).to.eq(winner === playerB.address);
+
+    console.log(``);
+    if (winner === playerA.address) {
+      console.log(`🤖 playerA is the winner 🥇🥇`);
+    } else if (winner === playerB.address) {
+      console.log(`🎃 playerB is the winner 🥇🥇`);
+    } else if (winner === EthersT.ZeroAddress) {
+      console.log(`Game is a draw!`);
+    }
   });
 
-  // ❌ The test must fail if the decryption proof is invalid
-  it("should fail when the decryption proof is invalid", async function () {
-    const tx = await contract.connect(signers.alice).initialize(true, 123456, 78901234567);
-    await tx.wait();
-
-    const encryptedBool = await contract.getEncryptedBool();
-    const encryptedUint32 = await contract.getEncryptedUint32();
-    const encryptedUint64 = await contract.getEncryptedUint64();
-
-    const publicDecryptResults = await fhevm.publicDecrypt([
-      encryptedBool.toString(),
-      encryptedUint32.toString(),
-      encryptedUint64.toString(),
-    ]);
-
-    await expect(
-      contract.recordAndVerifyDecryption(
-        publicDecryptResults.abiEncodedClearValues,
-        publicDecryptResults.decryptionProof + "dead",
-      ),
-    ).to.be.revertedWithCustomError(
-      { interface: new EthersT.Interface(["error KMSInvalidSigner(address invalidSigner)"]) },
-      "KMSInvalidSigner",
-    );
-  });
-
-  // ❌ The test must fail if a malicious operator attempts to use a decryption proof
-  // with forged values.
-  it("should fail when using a decryption proof with forged values", async function () {
-    const tx = await contract.connect(signers.alice).initialize(true, 123456, 78901234567);
-    await tx.wait();
-
-    const encryptedBool = await contract.getEncryptedBool();
-    const encryptedUint32 = await contract.getEncryptedUint32();
-    const encryptedUint64 = await contract.getEncryptedUint64();
-
-    const encryptedBoolString = encryptedBool.toString();
-    const encryptedUint32String = encryptedUint32.toString();
-    const encryptedUint64String = encryptedUint64.toString();
-
-    const publicDecryptResults = await fhevm.publicDecrypt([
-      encryptedBoolString,
-      encryptedUint32String,
-      encryptedUint64String,
-    ]);
-
-    // The clear values are also ABI-encoded
-    const decodedValues = EthersT.AbiCoder.defaultAbiCoder().decode(
-      ["bool", "uint32", "uint64"],
+  // ❌ Test should fail because clear values are ABI-encoded in the wrong order.
+  it("decryption should fail when ABI-encoding is wrongly ordered", async function () {
+    // Test Case: Verify strict ordering is enforced for cryptographic proof generation.
+    // The `decryptionProof` is generated based on the expected order (A, B). By ABI-encoding
+    // the clear values in the **reverse order** (B, A), we create a mismatch when the contract
+    // internally verifies the proof (e.g., checks a signature against a newly computed hash).
+    // This intentional failure is expected to revert with the `KMSInvalidSigner` error,
+    // confirming the proof's order dependency.
+    const tx = await contract.connect(signers.owner).highestDieRoll(playerA, playerB);
+    const gameCreatedEvent = parseGameCreatedEvent(await tx.wait())!;
+    const gameId = gameCreatedEvent.gameId;
+    const playerADiceRoll = gameCreatedEvent.playerAEncryptedDiceRoll;
+    const playerBDiceRoll = gameCreatedEvent.playerBEncryptedDiceRoll;
+    // Call `fhevm.publicDecrypt` using order (A, B)
+    const publicDecryptResults = await fhevm.publicDecrypt([playerADiceRoll, playerBDiceRoll]);
+    const clearValueA: ClearValueType = publicDecryptResults.clearValues[playerADiceRoll];
+    const clearValueB: ClearValueType = publicDecryptResults.clearValues[playerBDiceRoll];
+    const decryptionProof = publicDecryptResults.decryptionProof;
+    expect(typeof clearValueA).to.eq("bigint");
+    expect(typeof clearValueB).to.eq("bigint");
+    expect(ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [clearValueA, clearValueB])).to.eq(
       publicDecryptResults.abiEncodedClearValues,
     );
-    const [decodedBool, decodedUint32, decodedUint64] = decodedValues;
-
-    expect(decodedBool).to.eq(publicDecryptResults.clearValues[encryptedBoolString]);
-    expect(decodedUint32).to.eq(publicDecryptResults.clearValues[encryptedUint32String]);
-    expect(decodedUint64).to.eq(publicDecryptResults.clearValues[encryptedUint64String]);
-
-    // Let's try to forge the values
-    const forgedBool = !decodedBool;
-    const forgedUint32 = (decodedUint32 as bigint) + BigInt(1000);
-    const forgedUint64 = (decodedUint64 as bigint) + BigInt(2000);
-    const forgedABIEncodedClearValues = EthersT.AbiCoder.defaultAbiCoder().encode(
-      ["bool", "uint32", "uint64"],
-      [forgedBool, forgedUint32, forgedUint64],
+    const wrongOrderBAInsteadOfABAbiEncodedValues = ethers.AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [clearValueB, clearValueA],
     );
-
+    // ❌ Call `contract.recordAndVerifyWinner` using order (B, A)
     await expect(
-      contract.recordAndVerifyDecryption(
-        forgedABIEncodedClearValues,
-        publicDecryptResults.decryptionProof,
-      ),
-    ).to.be.revertedWithCustomError(
-      { interface: new EthersT.Interface(["error KMSInvalidSigner(address invalidSigner)"]) },
-      "KMSInvalidSigner",
-    );
-  });
-
-  // ❌ The test must fail if the order of encrypted handles is wrong
-  it("should fail when using encrypted handles in wrong order", async function () {
-    const tx = await contract.connect(signers.alice).initialize(true, 123456, 78901234567);
-    await tx.wait();
-
-    const encryptedBool = await contract.getEncryptedBool();
-    const encryptedUint32 = await contract.getEncryptedUint32();
-    const encryptedUint64 = await contract.getEncryptedUint64();
-
-    // Wrong order: (uint32, bool, uint64) instead of (bool, uint32, uint64)
-    const publicDecryptResults = await fhevm.publicDecrypt([
-      encryptedUint32.toString(),
-      encryptedBool.toString(),
-      encryptedUint64.toString(),
-    ]);
-
-    // The decryption will succeed, but the ABI encoding will be wrong
-    // The contract expects (bool, uint32, uint64) but we're providing (uint32, bool, uint64)
-    // This will cause a mismatch when verifying the proof
-    await expect(
-      contract.recordAndVerifyDecryption(
-        publicDecryptResults.abiEncodedClearValues,
-        publicDecryptResults.decryptionProof,
-      ),
+      contract.recordAndVerifyWinner(gameId, wrongOrderBAInsteadOfABAbiEncodedValues, decryptionProof),
     ).to.be.revertedWithCustomError(
       { interface: new EthersT.Interface(["error KMSInvalidSigner(address invalidSigner)"]) },
       "KMSInvalidSigner",

@@ -1,45 +1,60 @@
-#!/usr/bin/env node
+#!/usr/bin/env ts-node
 
 /**
  * generate-docs - Generates GitBook-formatted documentation from contracts and tests
  *
- * Usage: node scripts/generate-docs.js <example-name> [options]
+ * Usage: ts-node scripts/generate-docs.ts <example-name> [options]
  *
- * Example: node scripts/generate-docs.js fhe-counter --output docs/
+ * Example: ts-node scripts/generate-docs.ts fhe-counter --output docs/
  */
 
-const fs = require('fs');
-const path = require('path');
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Color codes for terminal output
-const colors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  blue: '\x1b[34m',
-  yellow: '\x1b[33m',
-  red: '\x1b[31m',
-  cyan: '\x1b[36m',
-};
-
-function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+enum Color {
+  Reset = '\x1b[0m',
+  Green = '\x1b[32m',
+  Blue = '\x1b[34m',
+  Yellow = '\x1b[33m',
+  Red = '\x1b[31m',
+  Cyan = '\x1b[36m',
 }
 
-function success(message) {
-  log(`✅ ${message}`, 'green');
+function log(message: string, color: Color = Color.Reset): void {
+  console.log(`${color}${message}${Color.Reset}`);
 }
 
-function info(message) {
-  log(`ℹ️  ${message}`, 'blue');
+function success(message: string): void {
+  log(`✅ ${message}`, Color.Green);
 }
 
-function error(message) {
-  log(`❌ Error: ${message}`, 'red');
+function info(message: string): void {
+  log(`ℹ️  ${message}`, Color.Blue);
+}
+
+function error(message: string): never {
+  log(`❌ Error: ${message}`, Color.Red);
   process.exit(1);
 }
 
+// Documentation configuration interface
+interface DocsConfig {
+  title: string;
+  description: string;
+  contract: string;
+  test: string;
+  output: string;
+  category: string;
+}
+
+// Generate documentation options
+interface GenerateDocsOptions {
+  noSummary?: boolean;
+}
+
 // Example configurations
-const docs_CONFIG = {
+const EXAMPLES_CONFIG: Record<string, DocsConfig> = {
   'fhe-counter': {
     title: 'FHE Counter',
     description: 'This example demonstrates how to build a confidential counter using FHEVM, in comparison to a simple counter.',
@@ -98,7 +113,7 @@ const docs_CONFIG = {
   }
 };
 
-function readFile(filePath) {
+function readFile(filePath: string): string {
   const fullPath = path.join(process.cwd(), filePath);
   if (!fs.existsSync(fullPath)) {
     error(`File not found: ${filePath}`);
@@ -106,12 +121,12 @@ function readFile(filePath) {
   return fs.readFileSync(fullPath, 'utf-8');
 }
 
-function getContractName(content) {
+function getContractName(content: string): string {
   const match = content.match(/^\s*contract\s+(\w+)(?:\s+is\s+|\s*\{)/m);
   return match ? match[1] : 'Contract';
 }
 
-function extractDescription(content) {
+function extractDescription(content: string): string {
   // Extract description from first multi-line comment or @notice
   const commentMatch = content.match(/\/\*\*\s*\n\s*\*\s*(.+?)\s*\n/);
   const noticeMatch = content.match(/@notice\s+(.+)/);
@@ -119,7 +134,7 @@ function extractDescription(content) {
   return commentMatch ? commentMatch[1] : (noticeMatch ? noticeMatch[1] : '');
 }
 
-function generateGitBookMarkdown(config, contractContent, testContent) {
+function generateGitBookMarkdown(config: DocsConfig, contractContent: string, testContent: string): string {
   const contractName = getContractName(contractContent);
   const description = config.description || extractDescription(contractContent);
 
@@ -156,11 +171,11 @@ function generateGitBookMarkdown(config, contractContent, testContent) {
   return markdown;
 }
 
-function updateSummary(exampleName, config) {
+function updateSummary(exampleName: string, config: DocsConfig): void {
   const summaryPath = path.join(process.cwd(), 'docs', 'SUMMARY.md');
 
   if (!fs.existsSync(summaryPath)) {
-    log('Creating new SUMMARY.md', 'yellow');
+    log('Creating new SUMMARY.md', Color.Yellow);
     const summary = `## Basic\n\n`;
     fs.writeFileSync(summaryPath, summary);
   }
@@ -178,7 +193,7 @@ function updateSummary(exampleName, config) {
 
   // Add to appropriate category
   const categoryHeader = `## ${config.category}`;
-  let updatedSummary;
+  let updatedSummary: string;
 
   if (summary.includes(categoryHeader)) {
     // Add under existing category
@@ -205,11 +220,11 @@ function updateSummary(exampleName, config) {
   success('Updated SUMMARY.md');
 }
 
-function generateDocs(exampleName, options = {}) {
-  const config = docs_CONFIG[exampleName];
+function generateDocs(exampleName: string, options: GenerateDocsOptions = {}): void {
+  const config = EXAMPLES_CONFIG[exampleName];
 
   if (!config) {
-    error(`Unknown example: ${exampleName}\n\nAvailable docs:\n${Object.keys(docs_CONFIG).map(k => `  - ${k}`).join('\n')}`);
+    error(`Unknown example: ${exampleName}\n\nAvailable examples:\n${Object.keys(EXAMPLES_CONFIG).map(k => `  - ${k}`).join('\n')}`);
   }
 
   info(`Generating documentation for: ${config.title}`);
@@ -237,59 +252,60 @@ function generateDocs(exampleName, options = {}) {
     updateSummary(exampleName, config);
   }
 
-  log('\n' + '='.repeat(60), 'green');
+  log('\n' + '='.repeat(60), Color.Green);
   success(`Documentation for "${config.title}" generated successfully!`);
-  log('='.repeat(60), 'green');
+  log('='.repeat(60), Color.Green);
 }
 
-function generateAllDocs() {
-  info('Generating documentation for all docs...\n');
+function generateAllDocs(): void {
+  info('Generating documentation for all examples...\n');
 
   let successCount = 0;
   let errorCount = 0;
 
-  for (const exampleName of Object.keys(docs_CONFIG)) {
+  for (const exampleName of Object.keys(EXAMPLES_CONFIG)) {
     try {
       generateDocs(exampleName, { noSummary: true });
       successCount++;
     } catch (err) {
-      log(`Failed to generate docs for ${exampleName}: ${err.message}`, 'red');
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      log(`Failed to generate docs for ${exampleName}: ${errorMessage}`, Color.Red);
       errorCount++;
     }
   }
 
   // Update summary once at the end
   info('\nUpdating SUMMARY.md...');
-  for (const exampleName of Object.keys(docs_CONFIG)) {
-    const config = docs_CONFIG[exampleName];
+  for (const exampleName of Object.keys(EXAMPLES_CONFIG)) {
+    const config = EXAMPLES_CONFIG[exampleName];
     updateSummary(exampleName, config);
   }
 
-  log('\n' + '='.repeat(60), 'green');
+  log('\n' + '='.repeat(60), Color.Green);
   success(`Generated ${successCount} documentation files`);
   if (errorCount > 0) {
-    log(`Failed: ${errorCount}`, 'red');
+    log(`Failed: ${errorCount}`, Color.Red);
   }
-  log('='.repeat(60), 'green');
+  log('='.repeat(60), Color.Green);
 }
 
 // Main execution
-function main() {
+function main(): void {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    log('FHEVM Documentation Generator', 'cyan');
-    log('\nUsage: node scripts/generate-docs.js <example-name> | --all\n');
-    log('Available docs:', 'yellow');
-    Object.entries(docs_CONFIG).forEach(([name, config]) => {
-      log(`  ${name}`, 'green');
-      log(`    ${config.title} - ${config.category}`, 'reset');
+    log('FHEVM Documentation Generator', Color.Cyan);
+    log('\nUsage: ts-node scripts/generate-docs.ts <example-name> | --all\n');
+    log('Available examples:', Color.Yellow);
+    Object.entries(EXAMPLES_CONFIG).forEach(([name, config]) => {
+      log(`  ${name}`, Color.Green);
+      log(`    ${config.title} - ${config.category}`, Color.Reset);
     });
-    log('\nOptions:', 'yellow');
-    log('  --all    Generate documentation for all docs');
-    log('\ndocs:', 'yellow');
-    log('  node scripts/generate-docs.js fhe-counter');
-    log('  node scripts/generate-docs.js --all\n');
+    log('\nOptions:', Color.Yellow);
+    log('  --all    Generate documentation for all examples');
+    log('\nExamples:', Color.Yellow);
+    log('  ts-node scripts/generate-docs.ts fhe-counter');
+    log('  ts-node scripts/generate-docs.ts --all\n');
     process.exit(0);
   }
 

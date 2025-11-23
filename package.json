@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "description": "Tooling for generating standalone FHEVM example repositories and documentation",
   "scripts": {
-    "create-example": "node scripts/create-fhevm-example.js",
-    "create-category": "node scripts/create-fhevm-category.js",
-    "generate-docs": "node scripts/generate-docs.js",
-    "generate-all-docs": "node scripts/generate-docs.js --all",
-    "help:create": "node scripts/create-fhevm-example.js --help",
-    "help:category": "node scripts/create-fhevm-category.js --help",
-    "help:docs": "node scripts/generate-docs.js --help"
+    "create-example": "ts-node scripts/create-fhevm-example.ts",
+    "create-category": "ts-node scripts/create-fhevm-category.ts",
+    "generate-docs": "ts-node scripts/generate-docs.ts",
+    "generate-all-docs": "ts-node scripts/generate-docs.ts --all",
+    "help:create": "ts-node scripts/create-fhevm-example.ts --help",
+    "help:category": "ts-node scripts/create-fhevm-category.ts --help",
+    "help:docs": "ts-node scripts/generate-docs.ts --help"
   },
   "keywords": [
     "fhevm",
@@ -28,5 +28,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/zama-ai/fhevm-examples"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }

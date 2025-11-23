@@ -1,46 +1,62 @@
-#!/usr/bin/env node
+#!/usr/bin/env ts-node
 
 /**
  * create-fhevm-category - CLI tool to generate FHEVM projects with multiple examples from a category
  *
- * Usage: node scripts/create-fhevm-category.js <category> [output-dir]
+ * Usage: ts-node scripts/create-fhevm-category.ts <category> [output-dir]
  *
- * Example: node scripts/create-fhevm-category.js basic ./output/fhevm-basic-examples
+ * Example: ts-node scripts/create-fhevm-category.ts basic ./output/fhevm-basic-examples
  */
 
-const fs = require('fs');
-const path = require('path');
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Color codes for terminal output
-const colors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  blue: '\x1b[34m',
-  yellow: '\x1b[33m',
-  red: '\x1b[31m',
-  cyan: '\x1b[36m',
-  magenta: '\x1b[35m',
-};
-
-function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+enum Color {
+  Reset = '\x1b[0m',
+  Green = '\x1b[32m',
+  Blue = '\x1b[34m',
+  Yellow = '\x1b[33m',
+  Red = '\x1b[31m',
+  Cyan = '\x1b[36m',
+  Magenta = '\x1b[35m',
 }
 
-function error(message) {
-  log(`❌ Error: ${message}`, 'red');
+function log(message: string, color: Color = Color.Reset): void {
+  console.log(`${color}${message}${Color.Reset}`);
+}
+
+function error(message: string): never {
+  log(`❌ Error: ${message}`, Color.Red);
   process.exit(1);
 }
 
-function success(message) {
-  log(`✅ ${message}`, 'green');
+function success(message: string): void {
+  log(`✅ ${message}`, Color.Green);
 }
 
-function info(message) {
-  log(`ℹ️  ${message}`, 'blue');
+function info(message: string): void {
+  log(`ℹ️  ${message}`, Color.Blue);
+}
+
+// Contract item interface
+interface ContractItem {
+  path: string;
+  test: string;
+  fixture?: string;
+  additionalFiles?: string[];
+}
+
+// Category configuration interface
+interface CategoryConfig {
+  name: string;
+  description: string;
+  contracts: ContractItem[];
+  additionalDeps?: Record<string, string>;
 }
 
 // Category definitions
-const CATEGORIES = {
+const CATEGORIES: Record<string, CategoryConfig> = {
   basic: {
     name: 'Basic FHEVM Examples',
     description: 'Fundamental FHEVM operations including encryption, decryption, and basic FHE operations',
@@ -118,7 +134,7 @@ const CATEGORIES = {
   },
 };
 
-function copyDirectoryRecursive(source, destination, excludeDirs = []) {
+function copyDirectoryRecursive(source: string, destination: string, excludeDirs: string[] = []): void {
   if (!fs.existsSync(destination)) {
     fs.mkdirSync(destination, { recursive: true });
   }
@@ -141,13 +157,13 @@ function copyDirectoryRecursive(source, destination, excludeDirs = []) {
   });
 }
 
-function getContractName(contractPath) {
+function getContractName(contractPath: string): string | null {
   const content = fs.readFileSync(contractPath, 'utf-8');
   const match = content.match(/^\s*contract\s+(\w+)(?:\s+is\s+|\s*\{)/m);
   return match ? match[1] : null;
 }
 
-function generateDeployScript(contractNames) {
+function generateDeployScript(contractNames: string[]): string {
   return `import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
@@ -170,7 +186,7 @@ func.tags = ["all", ${contractNames.map(n => `"${n}"`).join(', ')}];
 `;
 }
 
-function generateReadme(category, contractNames) {
+function generateReadme(category: string, contractNames: string[]): string {
   const categoryInfo = CATEGORIES[category];
 
   return `# FHEVM Examples: ${categoryInfo.name}
@@ -284,7 +300,7 @@ This project is licensed under the BSD-3-Clause-Clear License.
 `;
 }
 
-function createCategoryProject(category, outputDir) {
+function createCategoryProject(category: string, outputDir: string): void {
   const rootDir = path.resolve(__dirname, '..');
   const templateDir = path.join(rootDir, 'fhevm-hardhat-template');
 
@@ -303,12 +319,12 @@ function createCategoryProject(category, outputDir) {
   }
 
   // Step 1: Copy template
-  log('\n📋 Step 1: Copying template...', 'cyan');
+  log('\n📋 Step 1: Copying template...', Color.Cyan);
   copyDirectoryRecursive(templateDir, outputDir, ['node_modules', 'artifacts', 'cache', 'coverage', 'types', 'dist']);
   success('Template copied');
 
   // Step 2: Clear template contracts and tests
-  log('\n🧹 Step 2: Clearing template files...', 'cyan');
+  log('\n🧹 Step 2: Clearing template files...', Color.Cyan);
   const contractsDir = path.join(outputDir, 'contracts');
   const testsDir = path.join(outputDir, 'test');
 
@@ -328,15 +344,15 @@ function createCategoryProject(category, outputDir) {
   success('Template files cleared');
 
   // Step 3: Copy all contracts and tests from category
-  log('\n📄 Step 3: Copying contracts and tests...', 'cyan');
-  const contractNames = [];
-  const copiedTests = new Set();
+  log('\n📄 Step 3: Copying contracts and tests...', Color.Cyan);
+  const contractNames: string[] = [];
+  const copiedTests = new Set<string>();
 
   categoryInfo.contracts.forEach(({ path: contractPath, test: testPath, fixture, additionalFiles }) => {
     // Copy contract
     const fullContractPath = path.join(rootDir, contractPath);
     if (!fs.existsSync(fullContractPath)) {
-      log(`Warning: Contract not found: ${contractPath}`, 'yellow');
+      log(`Warning: Contract not found: ${contractPath}`, Color.Yellow);
       return;
     }
 
@@ -345,7 +361,7 @@ function createCategoryProject(category, outputDir) {
       contractNames.push(contractName);
       const destContractPath = path.join(contractsDir, `${contractName}.sol`);
       fs.copyFileSync(fullContractPath, destContractPath);
-      log(`  ✓ ${contractName}.sol`, 'green');
+      log(`  ✓ ${contractName}.sol`, Color.Green);
     }
 
     // Copy test (avoid duplicates)
@@ -355,7 +371,7 @@ function createCategoryProject(category, outputDir) {
       const destTestPath = path.join(testsDir, testFileName);
       fs.copyFileSync(fullTestPath, destTestPath);
       copiedTests.add(testPath);
-      log(`  ✓ ${testFileName}`, 'green');
+      log(`  ✓ ${testFileName}`, Color.Green);
     }
 
     // Copy fixture if exists
@@ -366,7 +382,7 @@ function createCategoryProject(category, outputDir) {
         const destFixturePath = path.join(testsDir, fixtureFileName);
         fs.copyFileSync(fullFixturePath, destFixturePath);
         copiedTests.add(fixture);
-        log(`  ✓ ${fixtureFileName}`, 'green');
+        log(`  ✓ ${fixtureFileName}`, Color.Green);
       }
     }
 
@@ -378,7 +394,7 @@ function createCategoryProject(category, outputDir) {
           const fileName = path.basename(filePath);
           const destFilePath = path.join(testsDir, fileName);
           fs.copyFileSync(fullFilePath, destFilePath);
-          log(`  ✓ ${fileName}`, 'green');
+          log(`  ✓ ${fileName}`, Color.Green);
         }
       });
     }
@@ -387,14 +403,14 @@ function createCategoryProject(category, outputDir) {
   success(`Copied ${contractNames.length} contracts and their tests`);
 
   // Step 4: Generate deployment script
-  log('\n⚙️  Step 4: Generating deployment script...', 'cyan');
+  log('\n⚙️  Step 4: Generating deployment script...', Color.Cyan);
   const deployScript = generateDeployScript(contractNames);
   const deployPath = path.join(outputDir, 'deploy', 'deploy.ts');
   fs.writeFileSync(deployPath, deployScript);
   success('Deployment script generated');
 
   // Step 5: Update package.json
-  log('\n📦 Step 5: Updating package.json...', 'cyan');
+  log('\n📦 Step 5: Updating package.json...', Color.Cyan);
   const packageJsonPath = path.join(outputDir, 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
@@ -414,47 +430,47 @@ function createCategoryProject(category, outputDir) {
   success('package.json updated');
 
   // Step 6: Generate README
-  log('\n📝 Step 6: Generating README...', 'cyan');
+  log('\n📝 Step 6: Generating README...', Color.Cyan);
   const readme = generateReadme(category, contractNames);
   fs.writeFileSync(path.join(outputDir, 'README.md'), readme);
   success('README.md generated');
 
   // Final summary
-  log('\n' + '='.repeat(60), 'green');
+  log('\n' + '='.repeat(60), Color.Green);
   success(`FHEVM ${categoryInfo.name} project created successfully!`);
-  log('='.repeat(60), 'green');
+  log('='.repeat(60), Color.Green);
 
-  log('\n📊 Project Summary:', 'magenta');
+  log('\n📊 Project Summary:', Color.Magenta);
   log(`  Category: ${categoryInfo.name}`);
   log(`  Contracts: ${contractNames.length}`);
   log(`  Location: ${path.relative(process.cwd(), outputDir)}`);
 
-  log('\n📦 Next steps:', 'yellow');
+  log('\n📦 Next steps:', Color.Yellow);
   log(`  cd ${path.relative(process.cwd(), outputDir)}`);
   log('  npm install');
   log('  npm run compile');
   log('  npm run test');
 
-  log('\n🎉 Happy coding with FHEVM!', 'cyan');
+  log('\n🎉 Happy coding with FHEVM!', Color.Cyan);
 }
 
 // Main execution
-function main() {
+function main(): void {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    log('FHEVM Category Project Generator', 'cyan');
-    log('\nUsage: node scripts/create-fhevm-category.js <category> [output-dir]\n');
-    log('Available categories:', 'yellow');
+    log('FHEVM Category Project Generator', Color.Cyan);
+    log('\nUsage: ts-node scripts/create-fhevm-category.ts <category> [output-dir]\n');
+    log('Available categories:', Color.Yellow);
     Object.entries(CATEGORIES).forEach(([key, info]) => {
-      log(`  ${key}`, 'green');
-      log(`    ${info.name}`, 'cyan');
-      log(`    ${info.description}`, 'reset');
-      log(`    Contracts: ${info.contracts.length}`, 'blue');
+      log(`  ${key}`, Color.Green);
+      log(`    ${info.name}`, Color.Cyan);
+      log(`    ${info.description}`, Color.Reset);
+      log(`    Contracts: ${info.contracts.length}`, Color.Blue);
     });
-    log('\nExamples:', 'yellow');
-    log('  node scripts/create-fhevm-category.js basic ./output/basic-examples');
-    log('  node scripts/create-fhevm-category.js auctions ./output/auction-examples\n');
+    log('\nExamples:', Color.Yellow);
+    log('  ts-node scripts/create-fhevm-category.ts basic ./output/basic-examples');
+    log('  ts-node scripts/create-fhevm-category.ts auctions ./output/auction-examples\n');
     process.exit(0);
   }
 
